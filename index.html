@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1f4d3a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Money">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Money Tracker</title>
+<style>
+  :root {
+    --bg: #f6f7f4;
+    --surface: #ffffff;
+    --text: #1d2a24;
+    --muted: #6b7a72;
+    --line: #dfe4df;
+    --ok: #1e7d4f;
+    --near: #b7791f;
+    --over: #c0392b;
+    --accent: #1f4d3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141a17;
+      --surface: #1c2420;
+      --text: #e8efe9;
+      --muted: #93a49a;
+      --line: #2e3a34;
+      --ok: #3fbf84;
+      --near: #e0a63a;
+      --over: #ef6b5b;
+      --accent: #3fbf84;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 16px; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  section {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+  input, select, button, textarea {
+    font: inherit;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    width: 100%;
+  }
+  input, select, textarea { font-size: 16px; } /* stops iPhone zooming in on focus */
+  input:focus-visible, select:focus-visible, button:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  button { cursor: pointer; }
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-weight: 600;
+  }
+  @media (prefers-color-scheme: dark) { button.primary { color: #0e1512; } }
+  button.small {
+    width: auto;
+    background: transparent;
+    color: var(--muted);
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .full { grid-column: 1 / -1; }
+
+  /* ---- The circle ---- */
+  .ring-wrap { display: flex; flex-direction: column; align-items: center; }
+  .ring { position: relative; width: 240px; height: 240px; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .track { fill: none; stroke: var(--line); stroke-width: 18; }
+  .ring .progress {
+    fill: none;
+    stroke: var(--ok);
+    stroke-width: 18;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease;
+  }
+  .ring .progress.near { stroke: var(--near); }
+  .ring .progress.over { stroke: var(--over); }
+  .ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .ring-center .big { font-size: 1.9rem; font-weight: 700; }
+  .ring-center .small-text { font-size: 0.85rem; color: var(--muted); }
+  .ring-center .big.over { color: var(--over); }
+  #message { margin: 12px 0 0; font-weight: 600; text-align: center; }
+  #message.ok { color: var(--ok); }
+  #message.near { color: var(--near); }
+  #message.over { color: var(--over); }
+  #message.no_limit { color: var(--muted); font-weight: 400; }
+
+  /* ---- Totals ---- */
+  .totals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .totals > div { padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .num { font-size: 1.2rem; font-weight: 700; }
+  .debit { color: var(--over); }
+  .credit { color: var(--ok); }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: none; }
+  .row small { color: var(--muted); display: block; }
+  .empty { color: var(--muted); margin: 0; }
+  #formError { color: var(--over); margin: 8px 0 0; }
+  details summary { cursor: pointer; font-weight: 600; }
+  details p { color: var(--muted); font-size: 0.9rem; }
+  .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+  textarea { min-height: 90px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  #backupMsg { margin: 8px 0 0; color: var(--muted); font-size: 0.9rem; }
+  @media (max-width: 480px) { .totals { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .ring .progress { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Money Tracker</h1>
+
+  <section>
+    <h2>Today</h2>
+    <div class="ring-wrap">
+      <div class="ring">
+        <svg viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="track" cx="100" cy="100" r="85"></circle>
+          <circle id="progress" class="progress" cx="100" cy="100" r="85"></circle>
+        </svg>
+        <div class="ring-center">
+          <div id="ringBig" class="big">₹0</div>
+          <div id="ringSmall" class="small-text">left today</div>
+          <div id="ringSpent" class="small-text"></div>
+        </div>
+      </div>
+      <p id="message" role="status" aria-live="polite"></p>
+    </div>
+    <div style="margin-top:16px">
+      <label for="limit">Daily limit (₹)</label>
+      <input id="limit" type="number" inputmode="decimal" min="0" step="1" placeholder="e.g. 500">
+    </div>
+  </section>
+
+  <section>
+    <h2>Add entry</h2>
+    <div class="grid">
+      <div>
+        <label for="amount">Amount (₹)</label>
+        <input id="amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div>
+        <label for="type">Type</label>
+        <select id="type">
+          <option value="debit">Debit (spent)</option>
+          <option value="credit">Credit (received)</option>
+        </select>
+      </div>
+      <div>
+        <label for="category">Category</label>
+        <select id="category"></select>
+      </div>
+      <div class="full">
+        <label for="note">Note (optional)</label>
+        <input id="note" type="text" maxlength="200" placeholder="e.g. lunch">
+      </div>
+      <div class="full">
+        <button id="addBtn" class="primary" type="button">Add entry</button>
+      </div>
+    </div>
+    <p id="formError" role="alert"></p>
+  </section>
+
+  <section>
+    <h2>Totals</h2>
+    <div class="totals">
+      <div><label>Spent this week</label><div id="spentWeek" class="num debit">₹0</div></div>
+      <div><label>Monthly saved</label><div id="monthlySaved" class="num credit">₹0</div></div>
+      <div><label>Total spent (all time)</label><div id="totalSpent" class="num debit">₹0</div></div>
+      <div><label>Total credited (all time)</label><div id="totalCredit" class="num credit">₹0</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>History</h2>
+    <div id="history"></div>
+  </section>
+
+  <section>
+    <details>
+      <summary>Backup and restore</summary>
+      <p>Your data lives only on this phone. Copy a backup and keep it in a note or message to yourself.</p>
+      <div class="btn-row">
+        <button id="copyBtn" type="button">Copy backup</button>
+        <button id="restoreBtn" type="button">Restore from text</button>
+      </div>
+      <label for="backupBox" style="margin-top:12px">Backup text (paste here to restore)</label>
+      <textarea id="backupBox" spellcheck="false"></textarea>
+      <p id="backupMsg" role="status"></p>
+    </details>
+  </section>
+</main>
+
+<script>
+// ==CORE_START==
+// Pure logic: no screen code in here, so it is easy to test.
+var CATEGORIES = [
+  "Food", "Travel", "Rent", "Shopping", "Bills",
+  "Health", "Entertainment", "Salary", "Other"
+];
+
+function pad(n) { return String(n).padStart(2, "0"); }
+function toKey(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function fromKey(k) { var p = k.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+
+function freshState(todayKey) {
+  return { limit: 0, saved: 0, countedUntil: todayKey, nextId: 1, entries: [] };
+}
+
+// Clean up anything loaded from storage or pasted in, so bad data cannot break the app.
+function normalizeState(raw, todayKey) {
+  var s = freshState(todayKey);
+  if (!raw || typeof raw !== "object") return s;
+  s.limit = Number(raw.limit) > 0 ? Number(raw.limit) : 0;
+  s.saved = Number.isFinite(Number(raw.saved)) ? Number(raw.saved) : 0;
+  s.countedUntil = /^\d{4}-\d{2}-\d{2}$/.test(raw.countedUntil || "") ? raw.countedUntil : todayKey;
+  var list = Array.isArray(raw.entries) ? raw.entries : [];
+  var maxId = 0;
+  list.forEach(function (e) {
+    if (!e || typeof e !== "object") return;
+    var amount = Number(e.amount);
+    var okType = e.type === "debit" || e.type === "credit";
+    var okDate = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "");
+    var id = Number(e.id);
+    if (!(amount > 0) || !okType || !okDate || !Number.isFinite(id)) return;
+    s.entries.push({
+      id: id,
+      amount: amount,
+      type: e.type,
+      category: CATEGORIES.indexOf(e.category) >= 0 ? e.category : "Other",
+      date: e.date,
+      note: String(e.note || "").slice(0, 200)
+    });
+    if (id > maxId) maxId = id;
+  });
+  s.nextId = Math.max(Number(raw.nextId) || 1, maxId + 1);
+  return s;
+}
+
+// Settle every finished day (before today) that has not been counted yet:
+//   monthly_saved += daily_limit - max(0, spent - credited)
+// When a month ends, monthly_saved starts again from 0.
+function closePastDays(state, todayKey) {
+  var limit = state.limit;
+  var saved = state.saved;
+  var start = state.countedUntil || todayKey;
+
+  if (start < todayKey) {
+    var spent = {}, credited = {};
+    state.entries.forEach(function (e) {
+      if (e.date >= start && e.date < todayKey) {
+        var bucket = e.type === "debit" ? spent : credited;
+        bucket[e.date] = (bucket[e.date] || 0) + e.amount;
+      }
+    });
+    var d = fromKey(start);
+    var end = fromKey(todayKey);
+    var guard = 0;
+    while (d < end && guard < 4000) {
+      if (limit > 0) {
+        var key = toKey(d);
+        var effective = Math.max(0, (spent[key] || 0) - (credited[key] || 0));
+        saved += limit - effective;
+      }
+      var next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+      if (next.getDate() === 1) saved = 0;
+      d = next;
+      guard++;
+    }
+  }
+  state.saved = round2(saved);
+  state.countedUntil = todayKey;
+  return state.saved;
+}
+
+function summarize(state, todayKey) {
+  var monthlySaved = closePastDays(state, todayKey);
+  var t = fromKey(todayKey);
+  var weekday = (t.getDay() + 6) % 7; // Monday = 0
+  var weekStart = toKey(new Date(t.getFullYear(), t.getMonth(), t.getDate() - weekday));
+
+  var spentToday = 0, creditedToday = 0, spentWeek = 0, totalDebit = 0, totalCredit = 0;
+  state.entries.forEach(function (e) {
+    if (e.type === "debit") {
+      totalDebit += e.amount;
+      if (e.date === todayKey) spentToday += e.amount;
+      if (e.date >= weekStart && e.date <= todayKey) spentWeek += e.amount;
+    } else {
+      totalCredit += e.amount;
+      if (e.date === todayKey) creditedToday += e.amount;
+    }
+  });
+
+  var limit = state.limit;
+  // A credit cancels out spending (e.g. 100 over + 100 credited = 0).
+  var effective = Math.max(0, spentToday - creditedToday);
+  var left = limit - effective;
+  var percent = limit > 0 ? (effective / limit) * 100 : 0;
+
+  var status;
+  if (limit <= 0) status = "no_limit";
+  else if (effective > limit) status = "over";
+  else if (percent >= 80) status = "near";
+  else status = "ok";
+
+  return {
+    date: todayKey,
+    daily_limit: limit,
+    spent_today: round2(spentToday),
+    credited_today: round2(creditedToday),
+    left_today: round2(left),
+    percent_used: Math.round(percent * 10) / 10,
+    status: status,
+    spent_week: round2(spentWeek),
+    total_debit: round2(totalDebit),
+    total_credit: round2(totalCredit),
+    monthly_saved: round2(monthlySaved)
+  };
+}
+
+// Returns { ok: true } or { error: "..." }
+function addEntry(state, input, todayKey) {
+  var amount = parseFloat(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return { error: "Amount must be greater than 0." };
+  if (input.type !== "debit" && input.type !== "credit") return { error: "Choose debit or credit." };
+  var category = CATEGORIES.indexOf(input.category) >= 0 ? input.category : "Other";
+  state.entries.push({
+    id: state.nextId++,
+    amount: amount,
+    type: input.type,
+    category: category,
+    date: todayKey,
+    note: String(input.note || "").trim().slice(0, 200)
+  });
+  return { ok: true };
+}
+
+function deleteEntry(state, id) {
+  var before = state.entries.length;
+  state.entries = state.entries.filter(function (e) { return e.id !== id; });
+  return state.entries.length < before;
+}
+
+// Settle finished days with the old limit before switching to the new one.
+function setLimit(state, value, todayKey) {
+  var n = parseFloat(value);
+  if (!Number.isFinite(n) || n < 0) n = 0;
+  closePastDays(state, todayKey);
+  state.limit = n;
+}
+// ==CORE_END==
+
+// ---------- Screen and storage code ----------
+var STORAGE_KEY = "money_tracker_state_v1";
+var state;
+
+function todayKeyNow() { return toKey(new Date()); }
+
+function money(n) {
+  var v = Number(n);
+  return (v < 0 ? "−" : "") + "₹" + Math.abs(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function escapeHtml(text) {
+  var div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function showError(msg) { document.getElementById("formError").textContent = msg || ""; }
+
+function loadState() {
+  var raw = null;
+  try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { raw = null; }
+  return normalizeState(raw, todayKeyNow());
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (e) {
+    showError("Could not save on this phone. Storage may be full or blocked.");
+    return false;
+  }
+}
+
+// ---- Circle ----
+var RADIUS = 85;
+var CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+var ring = document.getElementById("progress");
+ring.style.strokeDasharray = CIRCUMFERENCE;
+ring.style.strokeDashoffset = CIRCUMFERENCE;
+
+function drawRing(s) {
+  var percent = Math.max(0, Math.min(s.percent_used, 100));
+  ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - percent / 100);
+  ring.setAttribute("class", "progress " + (s.status === "over" ? "over" : s.status === "near" ? "near" : ""));
+
+  var big = document.getElementById("ringBig");
+  var small = document.getElementById("ringSmall");
+  var spent = document.getElementById("ringSpent");
+  var message = document.getElementById("message");
+  message.className = s.status;
+  big.className = "big";
+
+  var credited = s.credited_today > 0 ? money(s.credited_today) + " credited" : "";
+
+  if (s.status === "no_limit") {
+    big.textContent = money(s.spent_today);
+    small.textContent = "spent today";
+    spent.textContent = credited;
+    message.textContent = "Set a daily limit to see the circle fill.";
+    return;
+  }
+
+  spent.textContent = money(s.spent_today) + " of " + money(s.daily_limit) +
+    (credited ? " · " + credited : "");
+
+  if (s.status === "over") {
+    big.textContent = money(Math.abs(s.left_today));
+    big.className = "big over";
+    small.textContent = "over the limit";
+    message.textContent = "Stop spending. You are over today's limit.";
+  } else {
+    big.textContent = money(s.left_today);
+    small.textContent = "left today";
+    message.textContent = s.status === "near"
+      ? "Careful. You are close to today's limit."
+      : "You are within your limit.";
+  }
+}
+
+function drawTotals(s) {
+  document.getElementById("spentWeek").textContent = money(s.spent_week);
+  document.getElementById("totalSpent").textContent = money(s.total_debit);
+  document.getElementById("totalCredit").textContent = money(s.total_credit);
+  var saved = document.getElementById("monthlySaved");
+  saved.textContent = money(s.monthly_saved);
+  saved.className = "num " + (s.monthly_saved < 0 ? "debit" : "credit");
+}
+
+function drawHistory() {
+  var box = document.getElementById("history");
+  if (state.entries.length === 0) {
+    box.innerHTML = '<p class="empty">No entries yet. Add your first one above.</p>';
+    return;
+  }
+  var sorted = state.entries.slice().sort(function (a, b) {
+    return b.date.localeCompare(a.date) || b.id - a.id;
+  });
+  box.innerHTML = sorted.map(function (e) {
+    var sign = e.type === "debit" ? "−" : "+";
+    var note = e.note ? escapeHtml(e.note) : "";
+    return '<div class="row">' +
+      '<div><strong>' + escapeHtml(e.category) + '</strong>' + (note ? '<small>' + note + '</small>' : '') + '</div>' +
+      '<div><span class="' + e.type + '"><strong>' + sign + money(e.amount) + '</strong></span> ' +
+      '<button class="small" data-id="' + e.id + '" type="button">Delete</button></div>' +
+      '</div>';
+  }).join("");
+}
+
+function refresh() {
+  var s = summarize(state, todayKeyNow());
+  saveState(); // summarize may have settled finished days
+  drawRing(s);
+  drawTotals(s);
+  drawHistory();
+}
+
+// ---- Actions ----
+function onAdd() {
+  showError("");
+  var result = addEntry(state, {
+    amount: document.getElementById("amount").value,
+    type: document.getElementById("type").value,
+    category: document.getElementById("category").value,
+    note: document.getElementById("note").value
+  }, todayKeyNow());
+  if (result.error) { showError(result.error); return; }
+  document.getElementById("amount").value = "";
+  document.getElementById("note").value = "";
+  refresh();
+}
+
+function onLimit() {
+  setLimit(state, document.getElementById("limit").value, todayKeyNow());
+  refresh();
+}
+
+function onHistoryClick(ev) {
+  var id = ev.target.getAttribute("data-id");
+  if (id) { deleteEntry(state, Number(id)); refresh(); }
+}
+
+// ---- Backup and restore ----
+function backupText() { return JSON.stringify(state); }
+
+function backupMessage(msg) { document.getElementById("backupMsg").textContent = msg; }
+
+function onCopy() {
+  var box = document.getElementById("backupBox");
+  box.value = backupText();
+  var done = function () { backupMessage("Backup copied. Paste it somewhere safe."); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(box.value).then(done, function () {
+      box.select();
+      backupMessage("Could not copy by itself. Select the text above and copy it.");
+    });
+  } else {
+    box.select();
+    backupMessage("Select the text above and copy it.");
+  }
+}
+
+function onRestore() {
+  var text = document.getElementById("backupBox").value.trim();
+  var parsed;
+  try { parsed = JSON.parse(text); } catch (e) { backupMessage("That text is not a valid backup."); return; }
+  if (!parsed || !Array.isArray(parsed.entries)) { backupMessage("That text is not a valid backup."); return; }
+  if (!confirm("Replace all data on this phone with the backup?")) return;
+  state = normalizeState(parsed, todayKeyNow());
+  document.getElementById("limit").value = state.limit || "";
+  refresh();
+  backupMessage("Backup restored.");
+}
+
+// ---- Start ----
+function start() {
+  var select = document.getElementById("category");
+  select.innerHTML = CATEGORIES.map(function (c) { return "<option>" + c + "</option>"; }).join("");
+
+  state = loadState();
+  document.getElementById("limit").value = state.limit || "";
+
+  document.getElementById("addBtn").addEventListener("click", onAdd);
+  document.getElementById("limit").addEventListener("change", onLimit);
+  document.getElementById("history").addEventListener("click", onHistoryClick);
+  document.getElementById("copyBtn").addEventListener("click", onCopy);
+  document.getElementById("restoreBtn").addEventListener("click", onRestore);
+
+  refresh();
+
+  // Refresh every minute so the circle resets on its own when a new day starts.
+  setInterval(refresh, 60 * 1000);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) refresh();
+  });
+
+  // Ask the phone to keep this data and not clear it when space runs low.
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+
+  // Save the app files so it opens with no internet.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function () { /* app still works online */ });
+  }
+}
+start();
+</script>
+</body>
+</html>
